@@ -17,7 +17,7 @@ ALLIDS_REGEX= re.compile(r'(?<![a-f0-9])[ucr][a-f0-9]{32}(?![a-f0-9])')
 cities = ["嘉義縣", "新北市", "嘉義市", "新竹縣", "新竹市", "臺北市", "臺南市", "宜蘭縣", "苗栗縣", "雲林縣", "花蓮縣", "臺中市", "臺東縣", "桃園市", "南投縣", "高雄市", "金門縣", "屏東縣", "基隆市", "澎湖縣", "彰化縣", "連江縣"]
 ########################################################Login
 cl = CHRLINE(
-    "u07fc84cf45da11205e216f7d12aed362:aWF0OiAxMDM2NTEzODkzNjAK..4qVydi+Su22gfNrjVVshHnVcafA=",
+    "",
     device="IOS",
     useThrift=True
     )#Login
