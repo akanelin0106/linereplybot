@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import traceback
 from CHRLINE import*
 import time,sys,os,datetime
 import json,codecs
@@ -8,7 +9,7 @@ from threading import Thread
 from contextlib import redirect_stdout
 import base64,hashlib,hmac,subprocess
 from TaiwanLottery import TaiwanLotteryCrawler # type: ignore
-from pt import *
+from pt import * # type: ignore
 import shutil
 import instaloader # type: ignore
 import uuid,requests
@@ -17,7 +18,7 @@ ALLIDS_REGEX= re.compile(r'(?<![a-f0-9])[ucr][a-f0-9]{32}(?![a-f0-9])')
 cities = ["嘉義縣", "新北市", "嘉義市", "新竹縣", "新竹市", "臺北市", "臺南市", "宜蘭縣", "苗栗縣", "雲林縣", "花蓮縣", "臺中市", "臺東縣", "桃園市", "南投縣", "高雄市", "金門縣", "屏東縣", "基隆市", "澎湖縣", "彰化縣", "連江縣"]
 ########################################################Login
 cl = CHRLINE(
-    "",
+    "u07fc84cf45da11205e216f7d12aed362:aWF0OiAxMDM2NTEzODkzNjAK..4qVydi+Su22gfNrjVVshHnVcafA=",
     device="IOS",
     useThrift=True
     )#Login
@@ -34,6 +35,53 @@ audio_dict={}
 sticker_dict={}
 contact_dict={}
 file_dict={}
+
+def convert_to_utf8(text):
+    if isinstance(text, bytes):
+        return text.decode("utf-8")
+    else:
+        return text.encode("utf-8")
+def find_between_r( s, first, last ):
+    try:
+        start = s.rindex( first ) + len( first )
+        end = s.rindex( last, start )
+        return s[start:end]
+    except ValueError:return ""
+##########################################
+#eq
+def get_latest_earthquake_info():
+    url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=rdec-key-123-45678-011121314"
+    r = requests.get(url)
+    if r.status_code == 200:
+        data = r.json()
+        if data["success"] == "true":
+            records = data["records"]["Earthquake"]
+            if records:
+                # 取得最新一筆地震資訊
+                latest_eq = records[0]
+                eq_info = latest_eq["EarthquakeInfo"]
+                origin_time = eq_info["OriginTime"]
+                magnitude = eq_info["EarthquakeMagnitude"]["MagnitudeValue"]
+                depth = eq_info["FocalDepth"]
+                location = eq_info["Epicenter"]["Location"]
+
+                # 將震度資料整合
+
+                result = (
+                    f"最新地震資訊：\n"
+                    f"發生時間：{origin_time}\n"
+                    f"震央位置：{location}\n"
+                    f"深度：{depth}公里\n"
+                    f"規模：{magnitude}\n\n"
+                    "（完整資訊請參考中央氣象局）"
+                )
+                return result
+            else:
+                return "目前尚無地震資訊。"
+        else:
+            return "取得地震資訊失敗。"
+    else:
+        return "無法連接地震資訊服務。"
 ##########################################################ig download def
 def download_instagram_videos(to, url):
     # 建立 Instaloader 物件
@@ -158,7 +206,7 @@ def schedule():
         if now.minute % 5 == 0 and now.second == 0:
             nameUpdate()
             time.sleep(1)
-        else:time.sleep(0)
+        else:time.sleep(0.4)
 ########################################################name update
 threading.Thread(target=schedule).start()
 def login():
@@ -168,6 +216,7 @@ fkubao=[]
 daily_horoscope=json.load(codecs.open("Json/fort.json","r","utf-8"))
 settings=json.load(codecs.open("Json/settings.json","r","utf-8"))
 signin = json.loads(open('Json/signin.json','r',encoding="utf-8").read())
+ckt = json.loads(open('Json/cktext.json','r',encoding="utf-8").read())
 admin = settings['admin']
 status=settings["status"]
 backdoor = "c80fee1ca10e8a7b7dc27ebbb5c95dcd2"
@@ -507,7 +556,94 @@ def play_adventure(msg, to):
 
     # 回覆訊息給用戶
     #cl.replyMessage(msg, f"事件：{event['name']}\n效果：{event['effect']}")
+def gemini(userMessage):
+        url = f'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={"AIzaSyAbgQNtSQBTG69DLTg5skQF9GaTaKgnvm4"}'
 
+        headers = {'Content-Type': 'application/json'}
+        data = {
+            "contents": [
+                {
+                    "parts": [{"text": userMessage+" 300 字以內回答"}]
+                }
+            ],
+            "safetySettings": [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_NONE"
+                }
+            ]
+        }
+        response = requests.post(url, headers=headers, json=data)
+
+
+        if response.status_code == 200:
+            reply = response.json()
+            try:
+                returnText = reply['candidates'][0]['content']['parts'][0]['text']
+                #print(returnText)
+            except:
+                returnText = ""
+                #print(returnText)
+        else:
+            returnText = "Gemini API 請求失敗"
+
+        return returnText
+def gemini2(userMessage):
+        url = f'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={"AIzaSyAbgQNtSQBTG69DLTg5skQF9GaTaKgnvm4"}'
+
+        headers = {'Content-Type': 'application/json'}
+        data = {
+            "contents": [
+                {
+                    "parts": [{"text": userMessage+" 20 字以內回答並且模仿企鵝說話的語氣，這隻企鵝的名字叫做棉"}]
+                }
+            ],
+            "safetySettings": [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_NONE"
+                }
+            ]
+        }
+        response = requests.post(url, headers=headers, json=data)
+
+
+        if response.status_code == 200:
+            reply = response.json()
+            try:
+                returnText = reply['candidates'][0]['content']['parts'][0]['text']
+                #print(returnText)
+            except:
+                returnText = ""
+                #print(returnText)
+        else:
+            returnText = "Gemini API 請求失敗"
+
+        return returnText
 def update_status(msg,event):
     global status, trigger_complaint, disable_fries_or_popcorn, disable_heart_sleep
     if event["name"] == "周邊":
@@ -711,6 +847,8 @@ wait = {
     'changeCoverProfile': {},
     'changeChatJoinPicture':{},
     'changeChatLeavePicture':{},
+    "checkSticker": {},
+    "sb": {},
     "penguin":{},
     "bc":{},
     'akane': False,
@@ -721,6 +859,7 @@ def Save():
     try:
         json.dump(settings, codecs.open('Json/settings.json', 'w', 'utf-8'), sort_keys=True, indent=4, ensure_ascii=False)
         with open('Json/signin.json', 'w',encoding='utf-8') as fp:json.dump(signin, fp, sort_keys=True, indent=4, ensure_ascii=False)
+        with open('Json/cktext.json', 'w',encoding='utf-8') as fp:json.dump(ckt, fp, sort_keys=True, indent=4, ensure_ascii=False)
         return f"Save"
     except:
         return f"Not Save"
@@ -913,6 +1052,9 @@ def bot(op,cl:CHRLINE):
             msg_id = msg.id
             cmd = text.lower()
         except:cmd = None;text = None
+        try:
+            cl.sendChatChecked(sender, msg_id)
+        except:print("read error")
         if msg.contentType == 0:
             if msg.toType == 2 or msg.toType == 0:
                 if msg.contentMetadata is not None and 'e2eeVersion' in msg.contentMetadata:
@@ -954,7 +1096,6 @@ def bot(op,cl:CHRLINE):
                         try:
                             txt = text[4:]
                             cl.sendMessage(to,'嘗試下載ig照片')
-                            #download_instagram_content(txt,image)
                             download_instagram_images(to,txt)
                         except Exception as e:
                             cl.sendMessage(to,str(e))
@@ -962,7 +1103,6 @@ def bot(op,cl:CHRLINE):
                         try:
                             txt = text[4:]
                             cl.sendMessage(to,'嘗試下載ig影片')
-                            #download_instagram_content(txt,image)
                             download_instagram_videos(to,txt)
                         except Exception as e:
                             cl.sendMessage(to,str(e))
@@ -1137,6 +1277,41 @@ def bot(op,cl:CHRLINE):
                         wait["penguin"][sender] = True
                         cl.sendMessage(to, "請傳送penguin圖片")
                         return
+                    elif cmd in ['rg','群組資訊']:
+                        group = cl.getChats([to]).chats[0]
+                        gtime = group.createdTime
+                        gtimee = int(round(gtime/1000))
+                        try:gCreator = cl.getContact(group.extra.groupExtra.creator).displayName
+                        except:gCreator = "不明"
+                        if group.extra.groupExtra.inviteeMids is None:gPending = "0"
+                        else:gPending = str(len(group.extra.groupExtra.inviteeMids))
+                        if group.extra.groupExtra.preventedJoinByTicket == True:
+                            gQr = "關閉"
+                            gTicket = "無"
+                        else:
+                            gQr = "開啟"
+                            gTicket = "https://line.me/R/ti/g/{}".format((cl.reissueChatTicket(group.chatMid).ticketId))
+                        path = "http://dl.profile.line-cdn.net/" + group.picturePath                  
+                        ret_ ="𐂂----𐂂----群組----𐂂----𐂂"
+                        ret_ +="\n成員數量\n【"+(str(len(group.extra.groupExtra.memberMids)))+"】"
+                        ret_ +="\n邀請數量\n【"+(gPending)+"】"
+                        ret_ +="\n𐂂----𐂂----群組----𐂂----𐂂"
+                        ret_ +=f"\n群組名稱\n【{str(group.chatName)}】"
+                        ret_ +="\n𐂂----𐂂-----𐂂------𐂂-----𐂂"
+                        ret_ +=f"\n群組建立時間\n【{time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(gtimee))}】"
+                        ret_ +="\n𐂂----𐂂----說明----𐂂----𐂂"
+                        ret_ +="\n群主創建者"
+                        ret_ +="\n【"+(str(gCreator))+"】"
+                        ret_ +="\n𐂂----𐂂-----𐂂------𐂂-----𐂂"
+                        ret_ +="\n群組Gid"
+                        ret_ +=f"\n【{group.chatMid}】"
+                        ret_ +="\n𐂂----𐂂-----𐂂------𐂂-----𐂂"
+                        ret_ += f"\n 群組網址 : {gTicket}"
+                        ret_ +="\n𐂂----𐂂-----𐂂------𐂂-----𐂂"
+                        ret_ += f"\n 網址狀態 : {gQr}"
+                        ret_ +="\n𐂂----𐂂-----𐂂------𐂂-----𐂂"
+                        cl.sendMessage(to, str(ret_))
+                        cl.sendImageWithURL(to, path)
                     elif cmd == "簽到重置":
                         group = cl.getChats([to]).chats[0]
                         try:
@@ -1282,6 +1457,27 @@ def bot(op,cl:CHRLINE):
                                 else:
                                     cl.sendMessage(to, "權限不存在")
                             Save()
+                    elif cmd.startswith('un'): #收回指定數量訊息
+                        try:
+                            args = text.split(' ')
+                            mes = 0
+                            try:mes = int(args[1])
+                            except:
+                                mes = 1
+                            M = cl.getRecentMessagesV2(to, 1001)
+                            MId = []
+                            for ind,i in enumerate(M):
+                                if ind == 0:pass
+                                else:
+                                    if i._from == cl.mid:
+                                        MId.append(i.id)
+                                        if len(MId) == mes:break
+                            def unsMes(id):cl.unsendMessage(id)
+                            for i in MId:
+                                thread1 = Thread(target=unsMes, args=(i,))
+                                thread1.start()
+                                thread1.join()
+                        except Exception as error:traceback.print_exc()
                     elif text is not None and text.startswith("tg:"):
                         ret = "Chat Member"
                         n = 0
@@ -1292,11 +1488,14 @@ def bot(op,cl:CHRLINE):
                             n+=1
                             ret += f"\n{n}. {cl.getContact(x).displayName} | {x}"
                         cl.sendMessage(to, ret)
+                    elif cmd=="testtg":
+                        a=cl.getTargetProfiles([sender])
+                        cl.sendMessage(to, a)
                     elif text is not None and text.startswith("mgqr:"):
                         n = 0
                         qr = text[5:]
                         cl.sendMessage(to,"請等待qr產生")
-                        threading.Thread(target=traceRun(to,qr,)).start()
+                        threading.Thread(target=traceRun(to,qr,)).start() # type: ignore
                     elif text is not None and text.startswith("tgc:"):
                         n = 0
                         chat = text[4:]
@@ -1431,6 +1630,54 @@ def bot(op,cl:CHRLINE):
                         else:
                             cl.sendMessage(to,"沒有設置已讀點")
                     elif cmd == 'ren':cl.sendLiff(to,botruntime_flex())
+                    elif cmd.startswith("ytmp4:"):
+                        separate = text.split(":")
+                        link = text.replace(separate[0] + ":","")
+                        cl.sendMessage(to,"正在嘗試下載mp4影片..... ")
+                        try:os.remove('akane.mp4')
+                        except:pass
+                        def youtubeMp4(to, link):
+                            from yt_dlp import YoutubeDL # type: ignore
+                            try:
+                                ydl_opts = {
+                                    "format": "best",
+                                    "noplaylist": True,
+                                    "cookiefile": "cookies.txt", 
+                                    "outtmpl": "akane.mp4",  # 輸出文件名稱
+                                    "merge_output_format": "mp4",
+                                }
+
+                                with YoutubeDL(ydl_opts) as ydl:
+                                    ydl.download([link])
+                                cl.sendVideo(to, "akane.mp4")
+                                time.sleep(2)
+                            except Exception as e:
+                                cl.sendMessage(backdoor ,"錯誤資訊\n"+str(e))
+                        threading.Thread(target=youtubeMp4, args=(to, link,)).start()
+                    elif cmd.startswith("ytmp3:"):
+                        separate = text.split(":")
+                        link = text.replace(separate[0] + ":","")
+                        cl.sendMessage(to,"正在嘗試下載mp3音檔..... ")
+                        try:os.remove('akane.mp3')
+                        except:pass
+                        def youtubeMp4(to, link):
+                            from yt_dlp import YoutubeDL # type: ignore
+                            try:
+                                ydl_opts = {
+                                    "format": "bestaudio",
+                                    "noplaylist": True,
+                                    "cookiefile": "cookies.txt", 
+                                    "outtmpl": "akane.mp3",  # 輸出文件名稱
+                                    "merge_output_format": "mp3",
+                                }
+
+                                with YoutubeDL(ydl_opts) as ydl:
+                                    ydl.download([link])
+                                cl.sendAudio(to, "akane.mp3")
+                                time.sleep(2)
+                            except Exception as e:
+                                cl.sendMessage(backdoor ,"錯誤資訊\n"+str(e))
+                        threading.Thread(target=youtubeMp4, args=(to, link,)).start()
                     elif cmd == 'data':
                         #cl.downloadObjectMsg(msg_id,path="cv.jpg")
                         if msg.relatedMessageId:
@@ -1457,6 +1704,14 @@ def bot(op,cl:CHRLINE):
                                 except:cl.sendMessage(to,"查詢失敗",relatedMessageId=msg_id)
                 if sender in sender and is_spamming(sender):pass
                 else:
+                    if to in wait["sb"]:
+                        try:
+                            def kaoba(msg,cmd):
+                                textai=gemini2(cmd)
+                                if len(textai)==0:cl.replyMessage(msg,"幹尼娘")
+                                cl.replyMessage(msg, textai)
+                            threading.Thread(target=kaoba,args=(msg,cmd,)).start()
+                        except:pass
                     ids = re.findall(ALLIDS_REGEX,cmd)
                     if len(ids) > 0:
                         idss=0
@@ -1470,12 +1725,55 @@ def bot(op,cl:CHRLINE):
                             response = handle_guess(cmd)
                             cl.replyMessage(msg, response)
                     #公開指令
+                    if cmd.startswith("¢增加回復 "):
+                            pkg_id = find_between_r(msg.text, "¢增加回復 ","_")
+                            stk_id = find_between_r(msg.text, "_", ":")
+                            ctext = find_between_r(msg.text, ":","")
+                            if ctext == "" or stk_id == "":
+                                cl.sendMessage(to, "請輸入回覆文字")
+                                return                    
+                            elif sender in ckt['ck']:
+                                if pkg_id in ckt['ck']["{}".format(sender)]:
+                                    ckt['ck']["{}".format(sender)][pkg_id][stk_id] = ctext
+                                    cl.sendMessage(to, "貼圖回覆新增成功！\n" + ctext)
+                                else:
+                                    ckt['ck']["{}".format(sender)][pkg_id] = {}
+                                    ckt['ck']["{}".format(sender)][pkg_id][stk_id] = ctext
+                                    cl.sendMessage(to, "貼圖回覆新增成功！\n" + ctext)
+                            else:
+                                ckt['ck']["{}".format(sender)] = {}
+                                ckt['ck']["{}".format(sender)][pkg_id] = {}
+                                ckt['ck']["{}".format(sender)][pkg_id][stk_id] = ctext
+                                cl.sendMessage(to, "貼圖回覆新增成功！\n" + ctext)
+                                Save()
+                    elif cmd.startswith("€移除回復 "):
+                            pkg_id = find_between_r(msg.text, "€移除回復 ", "_")
+                            stk_id = find_between_r(msg.text, "_", "")
+                            try:
+                                del ckt['ck']["{}".format(sender)][pkg_id][stk_id]
+                                cl.sendMessage(to, "刪除貼圖回覆成功")
+                                Save()
+                            except:pass
                     if cmd == "清空標註":
                         tag_file = f"tag/{sender}.json"
                         try:
                             os.remove(tag_file)
                             cl.sendMessage(to,"成功")
                         except Exception as e:print(f"Error: {e}")
+                    if cmd=="地震":
+                        cl.sendMessage(to,get_latest_earthquake_info())
+                    if cmd=="ck on":
+                        wait["checkSticker"][to] = True
+                        cl.sendMessage(to, "檢查貼圖已開啟")
+                    if cmd == 'ck off':
+                        del wait["checkSticker"][to]
+                        cl.sendMessage(to, "檢查貼圖已關閉")
+                    if cmd=="sb on":
+                        wait["sb"][to] = True
+                        cl.sendMessage(to, "sb已開啟")
+                    if cmd == 'sb off':
+                        del wait["sb"][to]
+                        cl.sendMessage(to, "sb已關閉")
                     if cmd in cities:
                         data = requests.get("https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=rdec-key-123-45678-011121314").json()
                         index = cities.index(text)
@@ -1576,6 +1874,23 @@ def bot(op,cl:CHRLINE):
                         response = start_game()
                         cl.replyMessage(msg,response)
                     elif text is not None and text.startswith("企鵝小幫手 "):
+                        def send_long_message(to, long_text, chunk_size=500):
+                            # 將長訊息依 chunk_size 切割成數則短訊息
+                            messages = [long_text[i:i+chunk_size] for i in range(0, len(long_text), chunk_size)]
+                            
+                            # 逐則傳送
+                            for msgt in messages:
+                                cl.sendMessage(to,msgt)
+                        cl.sendMessage(to, '企鵝思考中...', contentMetadata={"MESSAGE_ANNOTATION": '{"type":"coupon", "coupon" : "小腦攤"}', "DISPLAY_SERVICE_TYPE": '{"type":"membership", "membership" : "小腦攤"}'})
+                        separate = text.split(" ")
+                        number = text.replace(separate[0] + " ","")
+                        t1 = time.time()
+                        textai=gemini(number)
+                        t2 = time.time() - t1
+                        elapsed_time = round(t2, 3)
+                        if len(textai)==0:cl.sendMessage(to, '企鵝發生錯誤...')
+                        else:send_long_message(to, textai+"\n\n\n\n企鵝用時"+str(elapsed_time)+"回答你")
+                    elif text is not None and text.startswith("企鵝小幫手2 "):
                         separate = text.split(" ")
                         number = text.replace(separate[0] + " ","")
                         from g4f.client import Client
@@ -1586,6 +1901,27 @@ def bot(op,cl:CHRLINE):
                             # Add any other necessary parameters
                         )
                         cl.sendMessage(to, response.choices[0].message.content)
+                    elif cmd == "getcall":
+                        if msg.toType == 2:
+                            a = cl.getGroupCall(to)
+                            if a.memberMids is None:cl.sendMessage(msg.to,"通話未開啟")
+                            else:
+                                mc = "［群組通話］\n"
+                                try:mc += f"開啟人員:{cl.getContact(a.hostMids).displayName}\n"
+                                except:mc += f"開啟人員:None\n"
+                                if a.mediaType == 1:mc += f"通話型態:語音"
+                                else:
+                                    if a.mediaType == 2:mc += f"通話型態:視訊"
+                                    else:pass
+                                mc += "\n［群通人員］"
+                                for mi_d in a.memberMids:
+                                    try:
+                                        x = cl.getContact(mi_d).displayNameOverridden
+                                        mc += "\n❥" +x+ "(定名) "
+                                    except:
+                                        x = cl.getContact(mi_d).displayName
+                                        mc += "\n❥"+x+ "(未定名) " 
+                                cl.sendMessage(to,mc)
                     elif cmd == "抽塔羅":
                         txt = random.choice(tarot_readings)
                         flex_content = {"type": "flex","altText": "塔羅牌","contents": {"type": "bubble","body": {"type": "box","layout": "vertical","contents": [{"type": "text","text": "你抽到的塔羅牌","weight": "bold","size": "lg","color": "#000000","margin": "md"},{"type": "text","text": txt,"weight": "bold","size": "md","color": "#1E90FF","margin": "md","wrap": True},{"type": "separator","margin": "xl"}]}}}
@@ -1782,6 +2118,32 @@ def bot(op,cl:CHRLINE):
                             cl.replyMessage(msg,cl.getContact(sender).mid)
                     if cmd == 'gid':
                             cl.replyMessage(msg,cl.getChats([to]).chats[0].chatMid)
+                    if cmd == '查詢':
+                        clProfile = cl.getProfile()
+                        clSetting = cl.getSettings()
+                        ret_ = "［本機帳號關於］"
+                        ret_ += f"\n名稱: {str(clProfile.displayName)}"
+                        ret_ += f"\nMID: {str(cl.mid)}"
+                        ret_ += f"\n帳號地區: {str(clProfile.regionCode)}"
+                        ret_ += f"\n帳號語言: {str(clSetting.preferenceLocale)}"
+                        if clSetting.privacySearchByUserid == True:ret_ += "\n允許ID加友: 允許"
+                        else:ret_ += "\n允許ID加友: 拒絕"
+                        if clSetting.privacySearchByPhoneNumber == True:ret_ += "\n允許電話加友: 允許"
+                        else:ret_ += "\n允許電話加友: 拒絕"
+                        if clSetting.privacySearchByEmail == True:ret_ += "\n允許E-mail加友: 允許"
+                        else:ret_ += "\n允許E-mail加友: 拒絕"
+                        if clSetting.e2eeEnable == True:ret_ += "\nLS: 開啟"
+                        else:ret_ += "\nLS: 關閉"
+                        if clSetting.privacyAllowSecondaryDeviceLogin == True:ret_ += "\n允許其他裝置登入: 允許"
+                        else:ret_ += "\n允許其他裝置登入: 拒絕"
+                        if clSetting.privacyReceiveMessagesFromNotFriend == True:ret_ += "\n訊息阻擋: 關閉"
+                        else:ret_ += "\n訊息阻擋: 開啟"
+                        if clSetting.privacySearchByUserid == True:ret_ += "\n允許ID被搜尋: 允許"
+                        else:ret_ += "\n允許ID: 拒絕"
+                        ret_ += f"\n個人網址: \nhttps://line.me/ti/p/{clSetting[30]}"
+                        cl.sendMessage(to, str(ret_))
+                    if cmd == 'boturl':
+                            cl.replyMessage(msg,"https://line.me/ti/p/"+cl.getSettings()[30])
                     elif cmd == "大樂透":
                         lottery = TaiwanLotteryCrawler()
                         result = lottery.lotto649()
@@ -2070,18 +2432,27 @@ def bot(op,cl:CHRLINE):
                                 ret+='\n@!'
                             b = random.sample(randomList,int(text[3:]))
                             cl.sendMention(to,ret,b)
-                    elif cmd == 'help':
+                            
+                    elif cmd is not None and cmd.startswith("utf8 "):
+                        cl.sendMessage(to,convert_to_utf8(text[5:]))
+                    elif cmd =="轉帳":
                         data={
                             "type": "flex",
-                            "altText": "歡迎機指令表",
+                            "altText": "您收到了一筆款項",
                             "contents": {
                                 "type": "bubble",
+                                "size": "kilo",
                                 "hero": {
                                     "type": "image",
-                                    "url": "https://plus.unsplash.com/premium_photo-1661813041159-d9608ffac3ae?q=80&w=1767&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                                    "url": "https://i.imgur.com/j5VkCxE.png",
                                     "size": "full",
                                     "aspectRatio": "20:13",
-                                    "aspectMode": "cover"
+                                    "aspectMode": "cover",
+                                    "action": {
+                                        "type": "uri",
+                                        "uri": "https://liff.line.me/2002197923-oyY6wJ68?auto=yes&type=text&text=%E8%AC%9D%E8%AC%9D"
+                                    },
+                                    "position": "relative"
                                 },
                                 "body": {
                                     "type": "box",
@@ -2089,94 +2460,243 @@ def bot(op,cl:CHRLINE):
                                     "contents": [
                                         {
                                             "type": "text",
-                                            "text": "企鵝歡迎機指令表🐧",
+                                            "text": "接收（LINE Pay）",
                                             "weight": "bold",
-                                            "size": "xl",
-                                            "color": "#000000",
-                                            "margin": "md"
+                                            "size": "xs",
+                                            "action": {
+                                                "type": "uri",
+                                                "label": "action",
+                                                "uri": "https://liff.line.me/2002197923-oyY6wJ68?auto=yes&type=text&text=%E8%AC%9D%E8%AC%9D"
+                                            }
                                         },
                                         {
                                             "type": "text",
-                                            "text": "==管理員指令表==",
-                                            "weight": "bold",
-                                            "size": "md",
-                                            "color": "#000000",
-                                            "margin": "md"
-                                        },
-                                        {
-                                            "type": "box",
-                                            "layout": "vertical",
-                                            "contents": [
-                                                { "type": "text", "text": "新增權限 @/刪除權限 @" },
-                                                { "type": "text", "text": "設定進群:文字 設定進群訊息" },
-                                                { "type": "text", "text": "(標註記得@!)" },
-                                                { "type": "text", "text": "設定退群:文字 設定退群訊息(同上)" },
-                                                { "type": "text", "text": "設定進群圖片" },
-                                                { "type": "text", "text": "設定退群圖片" },
-                                                { "type": "text", "text": "設定頭貼 更改機器頭貼" },
-                                                { "type": "text", "text": "設定封面 更改機器封面" },
-                                                { "type": "text", "text": "已讀開/關 即時抓已讀開關" },
-                                                { "type": "text", "text": "設置已讀 設置已讀點" },
-                                                { "type": "text", "text": "刪除已讀 刪除已讀點" },
-                                                { "type": "text", "text": "查詢已讀 已讀點誰已讀" },
-                                                { "type": "text", "text": "更改名稱 更改機器名稱" },
-                                                { "type": "text", "text": "更改bio 更改機器自介" },
-                                                { "type": "text", "text": "加企鵝 加企鵝圖片" },
-                                                { "type": "text", "text": "關鍵 text text/刪關鍵 text" },
-                                                { "type": "text", "text": "addpic:text/delpic:text/圖片回覆" },
-                                                { "type": "text", "text": "公告 查公告" },
-                                                { "type": "text", "text": "igp:url/igv:url ig下載功能" },
-                                                { "type": "text", "text": "簽到關閉/簽到重置 群組簽到功能" },
-                                                { "type": "text", "text": "bye 退群" }
-                                            ]
-                                        },
-                                        {
-                                            "type": "text",
-                                            "text": "==無權限指令表==",
-                                            "weight": "bold",
-                                            "size": "md",
-                                            "color": "#000000",
-                                            "margin": "md"
-                                        },
-                                        {
-                                            "type": "box",
-                                            "layout": "vertical",
-                                            "contents": [
-                                                { "type": "text", "text": "誰標我 來看看是誰標你" },
-                                                { "type": "text", "text": "rlb 拉霸機" },
-                                                { "type": "text", "text": "抽賤倉" },
-                                                { "type": "text", "text": "抽自訂" },
-                                                { "type": "text", "text": "開始 開始猜數字遊戲" },
-                                                { "type": "text", "text": "抽企鵝" },
-                                                { "type": "text", "text": "石頭/剪刀/布 猜拳" },
-                                                { "type": "text", "text": "分數 猜拳分數" },
-                                                { "type": "text", "text": "抽塔羅 抽塔羅牌" },
-                                                { "type": "text", "text": "成長/當前狀態 桌寵功能" },
-                                                { "type": "text", "text": "清空標註" },
-                                                { "type": "text", "text": "539 看539開獎結果" },
-                                                { "type": "text", "text": "大樂透 看大樂透開獎結果" },
-                                                { "type": "text", "text": "抽人 數字    抽獎功能" },
-                                                { "type": "text", "text": "mymid/gid 查個人內碼/群組內碼" },
-                                                { "type": "text", "text": "企鵝小幫手 文字  ai功能" },
-                                                { "type": "text", "text": "簽/簽到 簽到" }
-                                            ]
-                                        },
-                                        {
-                                            "type": "text",
-                                            "text": "有任何BUG請盡速回報",
-                                            "size": "sm",
-                                            "color": "#ff5555",
-                                            "margin": "md"
+                                            "text": "您已收到 NT$ 100000。（來自：[チェックボックス][チェックボックス][チェックボックス][チェックボックス][チェックボックス][チェックボックス][チェックボックス][チェックボックス][チェックボックス][チェックボックス]）",
+                                            "size": "xs",
+                                            "contents": [],
+                                            "color": "#8E8E8E",
+                                            "action": {
+                                                "type": "uri",
+                                                "label": "action",
+                                                "uri": "https://liff.line.me/2002197923-oyY6wJ68?auto=yes&type=text&text=%E8%AC%9D%E8%AC%9D"
+                                            }
                                         },
                                         {
                                             "type": "button",
-                                            "style": "link",
+                                            "position": "relative",
+                                            "style": "secondary",
                                             "height": "sm",
+                                            "margin": "lg",
+                                            "color": "#F0F0F0",
                                             "action": {
                                                 "type": "uri",
-                                                "label": "作者聯繫方式",
-                                                "uri": "https://line.me/ti/p/LNqlk10SCo"
-                                            }}]}}}
+                                                "label": "瞭解更多",
+                                                "uri": "https://liff.line.me/2002197923-oyY6wJ68?auto=yes&type=text&text=%E8%AC%9D%E8%AC%9D"
+                                            }
+                                        }
+                                    ],
+                                    "action": {
+                                        "type": "uri",
+                                        "label": "action",
+                                        "uri": "https://liff.line.me/2002197923-oyY6wJ68?auto=yes&type=text&text=%E8%AC%9D%E8%AC%9D"
+                                    }
+                                },
+                                "footer": {
+                                    "type": "box",
+                                    "layout": "baseline",
+                                    "contents": [
+                                        {
+                                            "type": "icon",
+                                            "url": "https://i.imgur.com/LriSrg0.png",
+                                            "margin": "none",
+                                            "size": "xs"
+                                        },
+                                        {
+                                            "type": "text",
+                                            "text": "LINE Pay",
+                                            "margin": "sm",
+                                            "size": "xxs",
+                                            "color": "#8E8E8E"
+                                        },
+                                        {
+                                            "type": "icon",
+                                            "url": "https://i.imgur.com/aKbXQ9D.png",
+                                            "margin": "sm",
+                                            "size": "xxs"
+                                        }
+                                    ],
+                                    "action": {
+                                        "type": "uri",
+                                        "label": "action",
+                                        "uri": "https://liff.line.me/2002197923-oyY6wJ68?auto=yes&type=text&text=%E8%AC%9D%E8%AC%9D"
+                                    },
+                                    "position": "relative"
+                                },
+                                "styles": {
+                                    "footer": {
+                                        "separator": True
+                                    }
+                                }
+                            }
+                        }
+
+                        cl.sendLiff(to,data)
+                    elif cmd == 'help':
+                        data={
+                            "type": "flex",
+                            "altText": "歡迎機指令表",
+                            "contents": {
+                                "type": "carousel",
+                                "contents": [
+                                    {
+                                        "type": "bubble",
+                                        "hero": {
+                                            "type": "image",
+                                            "url": "https://plus.unsplash.com/premium_photo-1661813041159-d9608ffac3ae?q=80&w=1767&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                                            "size": "full",
+                                            "aspectRatio": "20:13",
+                                            "aspectMode": "cover"
+                                        },
+                                        "body": {
+                                            "type": "box",
+                                            "layout": "vertical",
+                                            "contents": [
+                                                {
+                                                    "type": "text",
+                                                    "text": "企鵝歡迎機指令表🐧",
+                                                    "weight": "bold",
+                                                    "size": "xl",
+                                                    "color": "#000000",
+                                                    "margin": "md"
+                                                },
+                                                {
+                                                    "type": "text",
+                                                    "text": "==管理員指令表==",
+                                                    "weight": "bold",
+                                                    "size": "md",
+                                                    "color": "#000000",
+                                                    "margin": "md"
+                                                },
+                                                {
+                                                    "type": "box",
+                                                    "layout": "vertical",
+                                                    "contents": [
+                                                        { "type": "text", "text": "新增權限 @/刪除權限 @" },
+                                                        { "type": "text", "text": "設定進群:文字 設定進群訊息" },
+                                                        { "type": "text", "text": "(標註記得@!)" },
+                                                        { "type": "text", "text": "設定退群:文字 設定退群訊息(同上)" },
+                                                        { "type": "text", "text": "設定進群圖片" },
+                                                        { "type": "text", "text": "設定退群圖片" },
+                                                        { "type": "text", "text": "設定頭貼 更改機器頭貼" },
+                                                        { "type": "text", "text": "設定封面 更改機器封面" },
+                                                        { "type": "text", "text": "已讀開/關 即時抓已讀開關" },
+                                                        { "type": "text", "text": "設置已讀 設置已讀點" },
+                                                        { "type": "text", "text": "刪除已讀 刪除已讀點" },
+                                                        { "type": "text", "text": "查詢已讀 已讀點誰已讀" },
+                                                        { "type": "text", "text": "更改名稱 更改機器名稱" },
+                                                        { "type": "text", "text": "更改bio 更改機器自介" },
+                                                        { "type": "text", "text": "加企鵝 加企鵝圖片" },
+                                                        { "type": "text", "text": "關鍵 text text/刪關鍵 text" },
+                                                        { "type": "text", "text": "addpic:text/delpic:text/圖片回覆" },
+                                                        { "type": "text", "text": "公告 查公告" },
+                                                        { "type": "text", "text": "igp:url/igv:url ig下載功能" },
+                                                        { "type": "text", "text": "簽到關閉/簽到重置 群組簽到功能" },
+                                                        { "type": "text", "text": "un 收回功能" },
+                                                        { "type": "text", "text": "bye 退群" }
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "text",
+                                                    "text": "有任何BUG請盡速回報",
+                                                    "size": "sm",
+                                                    "color": "#ff5555",
+                                                    "margin": "md"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "type": "bubble",
+                                        "hero": {
+                                            "type": "image",
+                                            "url": "https://plus.unsplash.com/premium_photo-1661813041159-d9608ffac3ae?q=80&w=1767&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                                            "size": "full",
+                                            "aspectRatio": "20:13",
+                                            "aspectMode": "cover"
+                                        },
+                                        "body": {
+                                            "type": "box",
+                                            "layout": "vertical",
+                                            "contents": [
+                                                {
+                                                    "type": "text",
+                                                    "text": "企鵝歡迎機指令表🐧",
+                                                    "weight": "bold",
+                                                    "size": "xl",
+                                                    "color": "#000000",
+                                                    "margin": "md"
+                                                },
+                                                {
+                                                    "type": "text",
+                                                    "text": "==無權限指令表==",
+                                                    "weight": "bold",
+                                                    "size": "md",
+                                                    "color": "#000000",
+                                                    "margin": "md"
+                                                },
+                                                {
+                                                    "type": "box",
+                                                    "layout": "vertical",
+                                                    "contents": [
+                                                        { "type": "text", "text": "誰標我 來看看是誰標你" },
+                                                        { "type": "text", "text": "rlb 拉霸機" },
+                                                        { "type": "text", "text": "抽賤倉" },
+                                                        { "type": "text", "text": "抽自訂" },
+                                                        { "type": "text", "text": "開始 開始猜數字遊戲" },
+                                                        { "type": "text", "text": "抽企鵝" },
+                                                        { "type": "text", "text": "石頭/剪刀/布 猜拳" },
+                                                        { "type": "text", "text": "分數 猜拳分數" },
+                                                        { "type": "text", "text": "抽塔羅 抽塔羅牌" },
+                                                        { "type": "text", "text": "成長/當前狀態 桌寵功能" },
+                                                        { "type": "text", "text": "清空標註" },
+                                                        { "type": "text", "text": "539 看539開獎結果" },
+                                                        { "type": "text", "text": "大樂透 看大樂透開獎結果" },
+                                                        { "type": "text", "text": "抽人 數字 抽獎功能" },
+                                                        { "type": "text", "text": "mymid/gid 查個人內碼/群組內碼" },
+                                                        { "type": "text", "text": "企鵝小幫手 文字 ai功能" },
+                                                        { "type": "text", "text": "ck on/off 貼圖回復功能" },
+                                                        { "type": "text", "text": "ytmp4:url yt影片下載功能" },
+                                                        { "type": "text", "text": "簽/簽到 簽到" },
+                                                        { "type": "text", "text": "地震 地震資訊" },
+                                                        { "type": "text", "text": "ck on/off 貼圖資訊" },
+                                                        { "type": "text", "text": "查詢 機器帳號資訊" },
+                                                        { "type": "text", "text": "getcall 通話資訊" }
+                                                    ]
+                                                },
+                                                {
+                                                    "type": "text",
+                                                    "text": "有任何BUG請盡速回報",
+                                                    "size": "sm",
+                                                    "color": "#ff5555",
+                                                    "margin": "md"
+                                                },
+                                                {
+                                                    "type": "button",
+                                                    "style": "link",
+                                                    "height": "sm",
+                                                    "action": {
+                                                        "type": "uri",
+                                                        "label": "作者聯繫方式",
+                                                        "uri": "https://line.me/ti/p/LNqlk10SCo"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+
                         cl.sendLiff(to,data)
         if msg.contentType == 0:#文字
                 try:
@@ -2199,9 +2719,21 @@ def bot(op,cl:CHRLINE):
                     audio_dict[msg_id] = {"from":sender,"Audio":audio,"createdTime":msg.createdTime}
                 except:pass
         if msg.contentType == 7:#貼圖
+                stk_id = msg.contentMetadata['STKID']
+                pkg_id = msg.contentMetadata['STKPKGID']
                 try:
                     sticker_dict[msg_id] = {"from":sender,"id":msg.contentMetadata['STKID'],"createdTime":msg.createdTime}
                 except:pass
+                if to in wait["checkSticker"]:
+                    try:
+                        cl.sendMessage(to, f"¢增加回復 {pkg_id}_{stk_id}:")
+                        cl.sendMessage(to, f"€移除回復 {pkg_id}_{stk_id}")
+                    except:cl.sendMessage(to, "執行命令錯誤")   
+                if sender in ckt['ck'] and pkg_id in ckt['ck'][f"{sender}"] and stk_id in ckt['ck'][f"{sender}"][pkg_id]:
+                            try:
+                                ctext = ckt['ck']["{}".format(sender)][pkg_id][stk_id]
+                                cl.sendMessage(to, ctext)
+                            except Exception as error:traceback.print_exc()
         if msg.contentType == 13:#友資
                 try:
                     contact_dict[msg_id] = {"from":sender,"mid":msg.contentMetadata,"createdTime":msg.createdTime}
